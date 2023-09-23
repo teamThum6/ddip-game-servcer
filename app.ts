@@ -47,6 +47,7 @@ type SharonUser = {
   step: number;
   id: string;
   uid: string;
+  name: string;
   isDie?: boolean;
 };
 
@@ -72,7 +73,7 @@ let timerMap: {
 } = {};
 
 io.on("connection", function (socket) {
-  socket.on("sharon_in", (roomName, uid) => {
+  socket.on("sharon_in", (roomName, uid, name) => {
     if (!sharonMap[roomName]) {
       sharonMap[roomName] = {
         started: false,
@@ -93,6 +94,7 @@ io.on("connection", function (socket) {
       step: 0,
       id: socket.id,
       uid,
+      name,
     };
 
     users.push(user);
@@ -101,7 +103,7 @@ io.on("connection", function (socket) {
 
     io.to(roomName).emit("sharon_member", users);
 
-    if (users.length === 2) {
+    if (users.length === 5) {
       sharonMap[roomName].started = true;
       io.to(roomName).emit("sharon_start");
       io.to(roomName).emit("sharon_command", "무궁화...");
@@ -194,7 +196,7 @@ io.on("connection", function (socket) {
 
     io.to(roomName).emit("timer_users", users);
 
-    if (users.length === 2) {
+    if (users.length === 5) {
       timerMap[roomName].started = true;
       io.to(roomName).emit("timer_start", timerMap[roomName].targetTime);
     }
