@@ -3,7 +3,6 @@ const app = express();
 const server = require("http").createServer(app);
 import cors from "cors";
 import { Server } from "socket.io";
-import fetch from "node-fetch";
 
 app.use(cors());
 
@@ -105,9 +104,9 @@ io.on("connection", function (socket) {
     io.to(roomName).emit("sharon_member", users);
 
     if (users.length === 5) {
-      fetch(`http://13.125.131.81/api/v1/product/${roomName}/invalid`, {
-        method: "DELETE",
-      });
+      //   fetch(`http://13.125.131.81/api/v1/product/${roomName}/invalid`, {
+      //     method: "DELETE",
+      //   });
 
       sharonMap[roomName].started = true;
       io.to(roomName).emit("sharon_start");
@@ -203,9 +202,9 @@ io.on("connection", function (socket) {
 
     if (users.length === 5) {
       timerMap[roomName].started = true;
-      fetch(`http://13.125.131.81/api/v1/product/${roomName}/invalid`, {
-        method: "DELETE",
-      });
+      //   fetch(`http://13.125.131.81/api/v1/product/${roomName}/invalid`, {
+      //     method: "DELETE",
+      //   });
       io.to(roomName).emit("timer_start", timerMap[roomName].targetTime);
     }
   });
