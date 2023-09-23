@@ -20,11 +20,11 @@ const io = new Server(server, {
 });
 
 type SharonRoom = {
-  users: User[];
+  users: SharonUser[];
   started: boolean;
 };
 
-type User = {
+type SharonUser = {
   step: number;
   id: string;
   uid: string;
@@ -32,6 +32,23 @@ type User = {
 
 let sharonMap: {
   [key: string]: SharonRoom;
+} = {};
+
+type TimerRoom = {
+  started: boolean;
+  users: TimerUser[];
+  targetTime: number;
+  ended: boolean;
+};
+
+type TimerUser = {
+  id: string;
+  uid: string;
+  time?: number;
+};
+
+let timerMap: {
+  [key: string]: TimerRoom;
 } = {};
 
 io.on("connection", function (socket) {
@@ -79,6 +96,68 @@ io.on("connection", function (socket) {
     io.to(roomName).emit("sharon_in", users);
   });
 
+  socket.on("timer_in", (roomName, uid) => {
+    if (!timerMap[roomName]) {
+      // 5~10 초 사이의 랜덤한 시간을 타겟으로 설정
+      const targetTime = Math.floor(Math.random() * (10 - 5 + 1)) + 5;
+
+      timerMap[roomName] = {
+        started: false,
+        users: [],
+        ended: false,
+        targetTime,
+      };
+    }
+
+    // 이미 시작된 방이면 더이상 입장 불가
+    if (timerMap[roomName].started) {
+      return;
+    }
+
+    const users = timerMap[roomName].users;
+
+    const user: TimerUser = {
+      id: socket.id,
+      uid,
+    };
+
+    users.push(user);
+
+    socket.join(roomName);
+
+    io.to(roomName).emit("timer_users", users);
+
+    if (users.length === 2) {
+      timerMap[roomName].started = true;
+      io.to(roomName).emit("timer_start", timerMap[roomName].targetTime);
+    }
+  });
+
+  socket.on(
+    "time_check",
+    (roomName: string, time: number, done: () => void) => {
+      const users = timerMap[roomName].users;
+      const user = users.find((user) => user.id === socket.id);
+
+      if (user) {
+        user.time = time;
+      }
+      done();
+
+      // targetTime 에 가장 가까운 유저가 있으면 게임 종료
+      const ended = users.every((user) => user.time !== undefined);
+
+      if (ended) {
+        timerMap[roomName].ended = true;
+        io.to(roomName).emit(
+          "timer_ended",
+          users,
+          timerMap[roomName].targetTime
+        );
+      }
+    }
+  );
+
   socket.on("disconnecting", () => {
     const sharonRoomKeys = Object.keys(sharonMap);
 
@@ -89,6 +168,18 @@ io.on("connection", function (socket) {
       if (userIndex !== -1) {
         users.users.splice(userIndex, 1);
         io.to(key).emit("sharon_in", users.users);
+      }
+    });
+
+    const timerRoomKeys = Object.keys(timerMap);
+
+    timerRoomKeys.forEach((key) => {
+      const users = timerMap[key];
+      const userIndex = users.users.findIndex((user) => user.id === socket.id);
+
+      if (userIndex !== -1) {
+        users.users.splice(userIndex, 1);
+        io.to(key).emit("timer_in", users.users);
       }
     });
   });
