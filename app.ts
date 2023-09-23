@@ -19,15 +19,35 @@ const io = new Server(server, {
   },
 });
 
+const commandList = [
+  "무궁화",
+  "무궁화 꽃이",
+  "무궁화 꽃이 피었",
+  "무궁화 꽃이 피었습니",
+  "무궁화 꽃이 피었습니다!",
+];
+
+function delayPrint(callback: () => void, minDelay: number, maxDelay: number) {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      callback();
+      resolve(undefined);
+    }, Math.random() * (maxDelay - minDelay) + minDelay * 1000);
+  });
+}
+
 type SharonRoom = {
   users: SharonUser[];
   started: boolean;
+  command: string;
+  timeout: NodeJS.Timeout | null;
 };
 
 type SharonUser = {
   step: number;
   id: string;
   uid: string;
+  isDie?: boolean;
 };
 
 let sharonMap: {
@@ -57,6 +77,8 @@ io.on("connection", function (socket) {
       sharonMap[roomName] = {
         started: false,
         users: [],
+        command: "무궁화",
+        timeout: null,
       };
     }
 
@@ -77,23 +99,68 @@ io.on("connection", function (socket) {
 
     socket.join(roomName);
 
-    io.to(roomName).emit("sharon_in", users);
+    io.to(roomName).emit("sharon_member", users);
 
     if (users.length === 2) {
       sharonMap[roomName].started = true;
       io.to(roomName).emit("sharon_start");
+      io.to(roomName).emit("sharon_command", "무궁화...");
+
+      let index = 1;
+
+      const commandList = [
+        "무궁화...",
+        "무궁화 꽃이...",
+        "무궁화 꽃이 피었...",
+        "무궁화 꽃이 피었습니...",
+        "무궁화 꽃이 피었습니다!",
+      ];
+
+      (function loop() {
+        var rand = Math.round(Math.random() * (3000 - 500)) + 500;
+        sharonMap[roomName].timeout = setTimeout(function () {
+          const command = commandList[index % commandList.length];
+
+          sharonMap[roomName].command = command;
+
+          index += 1;
+
+          io.to(roomName).emit("sharon_command", command);
+          loop();
+        }, rand);
+      })();
     }
   });
 
-  socket.on("step", (roomName) => {
+  socket.on("sharon_step", (roomName) => {
     const users = sharonMap[roomName].users;
     const user = users.find((user) => user.id === socket.id);
 
     if (user) {
+      if (sharonMap[roomName].command === "무궁화 꽃이 피었습니다!") {
+        io.to(roomName).emit("sharon_die", user.uid);
+        user.isDie = true;
+
+        const aliveUsers = users.filter((user) => !user.isDie);
+
+        if (aliveUsers.length === 1) {
+          clearTimeout(sharonMap[roomName].timeout!);
+          sharonMap[roomName].timeout = null;
+
+          io.to(roomName).emit("sharon_ended", aliveUsers[0].uid);
+        }
+      }
       user.step += 1;
+
+      if (user.step === 100) {
+        clearTimeout(sharonMap[roomName].timeout!);
+        sharonMap[roomName].timeout = null;
+
+        io.to(roomName).emit("sharon_ended", user.uid);
+      }
     }
 
-    io.to(roomName).emit("sharon_in", users);
+    io.to(roomName).emit("sharon_member", users);
   });
 
   socket.on("timer_in", (roomName, uid) => {
@@ -167,7 +234,7 @@ io.on("connection", function (socket) {
 
       if (userIndex !== -1) {
         users.users.splice(userIndex, 1);
-        io.to(key).emit("sharon_in", users.users);
+        io.to(key).emit("sharon_member", users.users);
       }
     });
 
@@ -179,7 +246,6 @@ io.on("connection", function (socket) {
 
       if (userIndex !== -1) {
         users.users.splice(userIndex, 1);
-        io.to(key).emit("timer_in", users.users);
       }
     });
   });
