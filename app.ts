@@ -103,7 +103,7 @@ io.on("connection", function (socket) {
 
     io.to(roomName).emit("sharon_member", users);
 
-    if (users.length === 2) {
+    if (users.length === 5) {
       //   fetch(`http://13.125.131.81/api/v1/product/${roomName}/invalid`, {
       //     method: "DELETE",
       //   });
@@ -200,7 +200,7 @@ io.on("connection", function (socket) {
 
     io.to(roomName).emit("timer_users", users);
 
-    if (users.length === 2) {
+    if (users.length === 5) {
       timerMap[roomName].started = true;
       //   fetch(`http://13.125.131.81/api/v1/product/${roomName}/invalid`, {
       //     method: "DELETE",
